@@ -1,0 +1,1 @@
+cloudscan/bin/cloudscan.bat -url https://cs.vigilantshieldazure.deloittecyber.net/cloud-ctrl start -bt none -bf WebGoat.NET.sln
