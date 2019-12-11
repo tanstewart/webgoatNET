@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--Copyright, Microsoft Corporation, All rights reserved.-->
+<Rule
+  Name="CL"
+  OverrideMode="Extend"
+  xmlns="http://schemas.microsoft.com/build/2009/properties">
+
+  <BoolProperty Name="IncludeInUnityFile" 
+                DisplayName="Include In Unity File" 
+                Description="When set to true, the file will be #included into a unity file." 
+                Category="Advanced" 
+                F1Keyword="VC.Project.VCCLCompilerTool.IncludeInUnityFile" />
+  <IntProperty Name="OrderInUnityFile"
+                DisplayName="Order Number in Unity File"
+                Description="Files included in a unity file will be sorted using their order number."
+                Category="Advanced"
+                F1Keyword="VC.Project.VCCLCompilerTool.GenerateUnityFilesAutomatically" />
+  <StringProperty Name="UnityFilesDirectory"
+                  DisplayName="Unity Files Directory"
+                  Description="The directory to create automatically generated unity files."
+                  Subtype="folder"
+                  Category="Advanced"
+                  F1Keyword="VC.Project.VCCLCompilerTool.UnityFileDirectory" />
+  <BoolProperty Name="CustomUnityFile"
+                DisplayName="Custom Unity File"
+                Description="Indicates custom unity file. If set to 'Yes' unity files will not be automatically generated."
+                Category="Advanced"
+                F1Keyword="VC.Project.VCCLCompilerTool.CustomUnityFile" />
+</Rule>
+

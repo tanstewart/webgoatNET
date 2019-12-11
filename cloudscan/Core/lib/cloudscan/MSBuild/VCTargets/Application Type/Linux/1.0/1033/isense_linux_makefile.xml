@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--Copyright, Microsoft Corporation, All rights reserved.-->
+<Rule
+      Name="ConfigurationLinuxIntelliSense"
+      DisplayName="C/C++"
+      PageTemplate="tool"
+      Description="C/C++"
+      SwitchPrefix="/"
+      Order="100"
+      xmlns="http://schemas.microsoft.com/build/2009/properties">
+  <Rule.Categories>
+    <Category Name="IntelliSense" DisplayName="IntelliSense" Description="IntelliSense" />
+  </Rule.Categories>
+  <Rule.DataSource>
+    <DataSource Persistence="ProjectFile" />
+  </Rule.DataSource>
+  <StringListProperty Name="NMakeIncludeSearchPath" DisplayName="Include Search Path" Category="IntelliSense" Switch="I"
+                  Description="Specifies the include search path for resolving included files." Subtype="folder" 
+                  F1Keyword="VC.Project.VCNMakeTool.IncludeSearchPath"/>
+  <StringListProperty Name="NMakeForcedIncludes" DisplayName="Forced Includes" Category="IntelliSense" Switch="FI"
+                  Description="Specifies the files that are forced included." Subtype="folder"
+                  F1Keyword="VC.Project.VCNMakeTool.ForcedIncludes"/>
+  <StringListProperty Name="NMakePreprocessorDefinitions" DisplayName="Preprocessor Definitions" Category="IntelliSense" Switch="D"
+                  Description="Specifies the preprocessor defines used by the source files." 
+                  F1Keyword="VC.Project.VCNMakeTool.PreprocessorDefinitions"/>
+<!--  <StringListProperty Name="UndefinePreprocessorDefinitions"
+                  DisplayName="Undefine Preprocessor Definitions"
+                  Description="Specifies one or more preprocessor undefines.     (/U[macro])"
+                  Category="IntelliSense"
+                  Switch="U"
+                  F1Keyword="VC.Project.VCCLCompilerTool.UndefinePreprocessorDefinitions" />-->
+  <StringProperty Name="AdditionalOptions" DisplayName="Additional Options" Category="IntelliSense"
+                  Description="Specifies additional compiler switches to be used by Intellisense when parsing C++ files" />
+</Rule>

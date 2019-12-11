@@ -1,0 +1,308 @@
+<!--
+***********************************************************************************************
+Linux.MakeFile.targets
+
+WARNING:  DO NOT MODIFY this file unless you are knowledgeable about MSBuild and have
+          created a backup copy.  Incorrect changes to this file will make it
+          impossible to load or build your projects from the command-line or the IDE.
+
+This file defines the steps/targets required to build Visual C++ MakeFile projects.
+
+Copyright (C) Microsoft Corporation. All rights reserved.
+***********************************************************************************************
+-->
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <Target Name="_AssignProjectReferencesPlatformType">
+    <ItemGroup>
+      <_MSBuildProjectReferenceExistent>
+        <ProjectApplicationType Condition="'%(_MSBuildProjectReferenceExistent)' == ''">Linux</ProjectApplicationType>
+      </_MSBuildProjectReferenceExistent>
+    </ItemGroup>
+  </Target>
+
+  <!-- override default makefile GetTargetPath target, which returns only managed output -->
+  <Target Name="GetTargetPath" DependsOnTargets="$(GetTargetPathDependsOn)" Returns="@(TargetPathWithTargetPlatformMoniker)">
+    <PropertyGroup>
+      <TargetPath Condition="'$(TargetPath)' == ''">$(NMakeOutput)</TargetPath>
+      <TargetPath Condition="'$(TargetPath)' == ''">Undefined</TargetPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <TargetPathWithTargetPlatformMoniker Include="$(TargetPath)">
+        <TargetPlatformMoniker>$(TargetPlatformMoniker)</TargetPlatformMoniker>
+        <TargetPlatformIdentifier>$(TargetPlatformIdentifier)</TargetPlatformIdentifier>
+      </TargetPathWithTargetPlatformMoniker>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="GetAdditionalLibraries">
+    <ItemGroup>
+      <AdditionalLibrary Include="@(Library)" Condition="'%(Library.ExcludedFromBuild)'!='true' and '%(Library.Extension)' == '.so'"/>
+    </ItemGroup>
+  </Target>
+
+  <PropertyGroup>
+    <RemoteDebuggerCommand Condition="'$(RemoteDebuggerCommand)' == ''">$(RemoteBuildOutputs)</RemoteDebuggerCommand>
+  </PropertyGroup>
+
+  <!-- Override the default property schemas, and define our own for Linux projects -->
+  <PropertyGroup>
+     <UseDefaultPropertyPageSchemas>false</UseDefaultPropertyPageSchemas>
+  </PropertyGroup>
+
+  <!-- *******************************************************************************************
+    Core Targets
+   ******************************************************************************************* -->
+  <UsingTask TaskName="Microsoft.Build.Linux.Tasks.ValidateSources" AssemblyFile="$(MSBuildthisFileDirectory)Microsoft.Build.Linux.Tasks.dll"/>
+  <UsingTask TaskName="Microsoft.Build.Linux.Tasks.CopySources" AssemblyFile="$(MSBuildthisFileDirectory)Microsoft.Build.Linux.Tasks.dll"/>
+  <UsingTask TaskName="Microsoft.Build.Linux.Tasks.Execute" AssemblyFile="$(MSBuildthisFileDirectory)Microsoft.Build.Linux.Tasks.dll"/>
+  <UsingTask TaskName="Microsoft.Build.Linux.Tasks.LogMessage" AssemblyFile="$(MSBuildthisFileDirectory)Microsoft.Build.Linux.Tasks.dll"/>
+  <UsingTask TaskName="Microsoft.Build.Linux.Tasks.ConsolidateSourcesToCopy" AssemblyFile="$(MSBuildthisFileDirectory)Microsoft.Build.Linux.Tasks.dll"/>
+  <UsingTask TaskName="Microsoft.Build.Linux.Tasks.ResolveRemoteTarget" AssemblyFile="$(MSBuildthisFileDirectory)Microsoft.Build.Linux.Tasks.dll"/>
+  <UsingTask TaskName="Microsoft.Build.Linux.Tasks.ResolveRemoteDir" AssemblyFile="$(MSBuildthisFileDirectory)Microsoft.Build.Linux.Tasks.dll"/>
+
+  <ItemGroup>
+    <SourcesToCopyRemotely Include="@(ClCompile);@(ClInclude);@(None)" />
+    <DataFilesToCopyRemotely Include="@(Xsd);@(Resource);@(Object);@(Library);@(FxCompile);@(Image);@(Media);@(Xml);@(Text);@(Font)" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <LocalRemoteCopySources Condition="'$(LocalRemoteCopySources)' == ''">true</LocalRemoteCopySources>
+    <AdditionalSourcesToCopyMapping Condition="'$(AdditionalSourcesToCopyMapping)' == ''"></AdditionalSourcesToCopyMapping>
+    <ParseMakefilesOutput Condition="'$(ParseMakefilesOutput)' == ''">true</ParseMakefilesOutput>
+  </PropertyGroup>
+
+  <Target Name="_ResolveRemoteTarget">
+    <ResolveRemoteTarget
+      RemoteTarget="$(RemoteTarget)">
+      <Output TaskParameter="ResolvedRemoteTarget" PropertyName="ResolvedRemoteTarget"/>
+      <Output TaskParameter="ResolvedRemoteTargetId" PropertyName="ResolvedRemoteTargetId"/>
+    </ResolveRemoteTarget>
+  </Target>
+  
+  <Target Name="ResolveRemoteDir" DependsOnTargets="_PrepareUpToDateChecks">
+    <ResolveRemoteDir Condition="'%(RemotePreBuildEvent.Command)' != '' or '%(RemotePreBuildEvent.AdditionalSourcesToCopyMapping)' != '' or '%(PreBuildEvent.AdditionalSourcesToCopyMapping)' != ''"
+      RemoteProjectDir="$(RemoteProjectDir)"
+      RemoteTarget="$(ResolvedRemoteTarget)"
+      ProjectDir="$(ProjectDir)"
+      IntermediateDir="$(IntDir)"
+      RemoteProjectDirFile="$(RemoteProjectDirFile)">
+      <Output TaskParameter="ResolvedRemoteProjectDir" PropertyName="_ResolvedRemoteProjectDir"/>
+    </ResolveRemoteDir>
+  </Target>
+
+  <Target Name="GetNativeTargetPath" DependsOnTargets="ResolveRemoteDir" Returns="@(NMakeNativeOutput)">
+    <PropertyGroup>
+      <RemoteBuildOutputFullPath Condition="'$(RemoteBuildOutputs)' != ''">$([System.IO.Path]::Combine('$(_ResolvedRemoteProjectDir)','$(RemoteBuildOutputs)'))</RemoteBuildOutputFullPath>
+    </PropertyGroup>
+  
+    <ItemGroup>
+      <NMakeNativeOutput Include="$(RemoteBuildOutputFullPath)" />
+    </ItemGroup>
+    <ItemGroup>
+      <NMakeNativeOutput Condition="'@(NMakeNativeOutput)' != ''" >
+        <FileType Condition="'%(NMakeNativeOutput.Extension)' == '.obj'">obj</FileType>
+        <FileType Condition="'%(NMakeNativeOutput.Extension)' == '.lib'">lib</FileType>
+        <FileType Condition="'%(NMakeNativeOutput.Extension)' == '.a'">lib</FileType>
+        <FileType Condition="'%(NMakeNativeOutput.Extension)' == '.so'">dll</FileType>
+        <FileType Condition="'%(NMakeNativeOutput.Extension)' == '.dll'">dll</FileType>
+        <FileType Condition="'%(NMakeNativeOutput.Extension)' == '.xdc'">xdc</FileType>
+      </NMakeNativeOutput>
+    </ItemGroup>
+  </Target>
+  
+  <Target Name="_ValidateSources" Condition="'$(LocalRemoteCopySources)' != 'false'">
+    <ValidateSources
+      Sources ="@(FinalSourcesToCopyRemotely)"
+      ProjectDir="$(ProjectDir)" />
+  </Target>
+
+  <Target Name="_PrepareUpToDateChecks" DependsOnTargets="_ResolveRemoteTarget">
+    <PropertyGroup>
+      <CopySourcesUpToDateFile>$(IntDir)$(ResolvedRemoteTargetId).CopySourcesUpToDateFile.tlog</CopySourcesUpToDateFile>
+      <CompileUpToDateFile>$(IntDir)$(ResolvedRemoteTargetId).CompileUpToDateFile.tlog</CompileUpToDateFile>
+      <RemoteProjectDirFile>$(IntDir)$(ResolvedRemoteTargetId).RemoteProjectDirFile.tlog</RemoteProjectDirFile>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="_ConsolidateSourcesToCopy" Condition="'$(LocalRemoteCopySources)' != 'false'">
+    <ConsolidateSourcesToCopy
+      ProjectDir="$(ProjectDir)"
+      Sources="@(SourcesToCopyRemotely);@(DataFilesToCopyRemotely)"
+      SourcesOverride="$(SourcesToCopyRemotelyOverride)"
+      AdditionalSourcesMappings="$(AdditionalSourcesToCopyMapping)">
+      <Output TaskParameter="SourcesToCopyRemotely" ItemName="FinalSourcesToCopyRemotely"/>
+      <Output TaskParameter="AdditionalSourcesToCopyRemotely" ItemName="AdditionalSourcesToCopyRemotely"/>
+    </ConsolidateSourcesToCopy>
+  </Target>
+
+  <Target Name="_CopySources" DependsOnTargets="_ConsolidateSourcesToCopy;_PrepareUpToDateChecks;_ValidateSources;_ResolveRemoteTarget">
+    <CopySources
+      Sources ="@(FinalSourcesToCopyRemotely)"
+      AdditionalSources="@(AdditionalSourcesToCopyRemotely)"
+      ProjectDir="$(ProjectDir)"
+      RemoteProjectDir="$(RemoteProjectDir)"
+      RemoteTarget="$(ResolvedRemoteTarget)"
+      IntermediateDir="$(IntDir)"
+      RemoteProjectDirFile="$(RemoteProjectDirFile)"
+      UpToDateFile="$(CopySourcesUpToDateFile)"
+      RemoteOutDir="$(RemoteOutDir)"
+      LocalRemoteCopySources="$(LocalRemoteCopySources)">
+      <Output TaskParameter="ResolvedRemoteProjectDir" PropertyName="_ResolvedRemoteProjectDir" />
+      </CopySources>
+  </Target>
+  
+  <Target Name="PrepareForNMakeBuild" DependsOnTargets="SetBuildDefaultEnvironmentVariables;SetUserMacroEnvironmentVariables;_CopySources;">
+     <!-- Create the directories for intermediate and final build products, and any other arbitrary directories. -->
+     <MakeDir Directories="$(OutDir);$(IntDir);$(TargetDir)"/>
+  </Target>
+
+  <Target Name="Build" DependsOnTargets="PrepareForNMakeBuild;ResolveReferences;GetTargetPath;PreBuildEvent;RemotePreBuildEvent;_ResolveRemoteTarget;">
+    <LogMessage ResourceName="ExecuteLocalBuildNotConfigured" Type="Warning" Arguments="BuildCommandLine" Condition="'$(BuildCommandLine)'==''"/>
+    <Exec Command="$(BuildCommandLine)" Condition="'$(BuildCommandLine)' != ''"/>
+    <LogMessage ResourceName="ExecuteBuildNotConfigured" Type="Warning" Arguments="RemoteBuildCommandLine" Condition="'$(RemoteBuildCommandLine)'==''"/>
+    <Execute Condition="'$(RemoteBuildCommandLine)' != ''"
+      Command="$(RemoteBuildCommandLine)"
+      ProjectDir="$(ProjectDir)"
+      RemoteProjectDir="$(_ResolvedRemoteProjectDir)"
+      RemoteTarget="$(ResolvedRemoteTarget)"
+      RemoteFilesToCopyLocally="$(RemoteBuildOutputs)"
+      LocalDirectoryDefault="$(OutDir)"
+      IntermediateDir="$(IntDir)"
+      ParseOutput="$(ParseMakefilesOutput)"
+      Timeout="$(RemoteExecuteTimeout)">
+    </Execute>
+  </Target>
+
+  <Target Name="Rebuild" DependsOnTargets="PrepareForNMakeBuild;Clean;ResolveReferences;GetTargetPath;RemotePreBuildEvent;_ResolveRemoteTarget;">
+    <LogMessage ResourceName="ExecuteLocalRebuildNotConfigured" Type="Warning" Arguments="ReBuildCommandLine" Condition="'$(ReBuildCommandLine)'==''"/>
+    <Exec Command="$(ReBuildCommandLine)" Condition="'$(ReBuildCommandLine)' != ''"/>
+    <LogMessage ResourceName="ExecuteRebuildNotConfigured" Type="Warning" Arguments="RemoteReBuildCommandLine" Condition="'$(RemoteReBuildCommandLine)'==''"/>
+    <Execute Condition="'$(RemoteReBuildCommandLine)' != ''"
+      Command="$(RemoteReBuildCommandLine)"
+      ProjectDir="$(ProjectDir)"
+      RemoteTarget="$(ResolvedRemoteTarget)"
+      RemoteProjectDir="$(_ResolvedRemoteProjectDir)"
+      RemoteFilesToCopyLocally="$(RemoteBuildOutputs)"
+      LocalDirectoryDefault="$(OutDir)"
+      IntermediateDir="$(IntDir)"
+      ParseOutput="$(ParseMakefilesOutput)"
+      Timeout="$(RemoteExecuteTimeout)">
+    </Execute>
+  </Target>
+
+  <Target Name="CoreClean" DependsOnTargets="PrepareForNMakeBuild;_ResolveRemoteTarget">
+    <LogMessage ResourceName="ExecuteLocalCleanNotConfigured" Type="Warning" Arguments="CleanCommandLine" Condition="'$(CleanCommandLine)'==''"/>
+    <Exec Command="$(CleanCommandLine)" Condition="'$(CleanCommandLine)' != ''"/>
+    <LogMessage ResourceName="ExecuteCleanNotConfigured" Type="Warning" Arguments="RemoteCleanCommandLine" Condition="'$(RemoteCleanCommandLine)'==''"/>
+    <Execute Condition="'$(RemoteCleanCommandLine)' != ''"
+      Command="$(RemoteCleanCommandLine)"
+      ProjectDir="$(ProjectDir)"
+      RemoteProjectDir="$(_ResolvedRemoteProjectDir)"
+      RemoteTarget="$(ResolvedRemoteTarget)"
+      IntermediateDir="$(IntDir)"
+      ParseOutput="$(ParseMakefilesOutput)"
+      Timeout="$(RemoteExecuteTimeout)">
+    </Execute>
+    <!-- TODO: might need to clean stuff like the tlog files and caches -->
+  </Target>
+
+  <Target Name="PreBuildEvent" Condition="'$(PreBuildEventUseInBuild)'!='false'" DependsOnTargets="_ResolveRemoteTarget">
+    <Message Text="Description: %(PreBuildEvent.Message)" Condition="'%(PreBuildEvent.Message)' != '' and '%(PreBuildEvent.Command)' != ''"/>
+    <Exec Command="%(PreBuildEvent.Command)$(_BuildSuffix)" Condition="'%(PreBuildEvent.Command)' != ''"/>
+    <Execute Condition="'%(PreBuildEvent.AdditionalSourcesToCopyMapping)' != ''"
+      RemoteTarget="$(ResolvedRemoteTarget)"
+      ProjectDir="$(ProjectDir)"
+      RemoteProjectDir="$(_ResolvedRemoteProjectDir)"
+      IntermediateDir="$(IntDir)"
+      LocalFilesToCopyRemotelyMapping="%(PreBuildEvent.AdditionalSourcesToCopyMapping)"
+      Timeout="$(RemoteExecuteTimeout)">
+    </Execute>
+  </Target>
+
+  <Target Name="PostBuildEvent" AfterTargets="RemotePostBuildEvent"  Condition="'$(PostBuildEventUseInBuild)'!='false'" DependsOnTargets="_ResolveRemoteTarget">
+    <Message Text="Description: %(PostBuildEvent.Message)" Condition="'%(PostBuildEvent.Message)' != '' and '%(PostBuildEvent.Command)' != ''"/>
+    <Exec Command="%(PostBuildEvent.Command)$(_BuildSuffix)" Condition="'%(PostBuildEvent.Command)' != ''"/>
+    <Execute Condition="'%(PostBuildEvent.AdditionalSourcesToCopyMapping)' != ''"
+      RemoteTarget="$(ResolvedRemoteTarget)"
+      ProjectDir="$(ProjectDir)"
+      RemoteProjectDir="$(_ResolvedRemoteProjectDir)"
+      IntermediateDir="$(IntDir)"
+      LocalFilesToCopyRemotelyMapping="%(PostBuildEvent.AdditionalSourcesToCopyMapping)"
+      Timeout="$(RemoteExecuteTimeout)">
+    </Execute>
+  </Target>
+
+  <Target Name="RemotePreBuildEvent" Condition="'$(RemotePreBuildEventUseInBuild)' != 'false'" DependsOnTargets="ResolveRemoteDir;_ResolveRemoteTarget">
+    <Message Text="Description: %(RemotePreBuildEvent.Message)" Condition="'%(RemotePreBuildEvent.Message)' != '' and '%(RemotePreBuildEvent.Command)' != ''"/>
+    <Execute Condition="'%(RemotePreBuildEvent.Command)' != '' or '%(RemotePreBuildEvent.AdditionalSourcesToCopyMapping)' != ''"
+      Command="%(RemotePreBuildEvent.Command)"
+      RemoteTarget="$(ResolvedRemoteTarget)"
+      ProjectDir="$(ProjectDir)"
+      RemoteProjectDir="$(_ResolvedRemoteProjectDir)"
+      IntermediateDir="$(IntDir)"
+      RemoteFilesToCopyLocallyMapping="%(RemotePreBuildEvent.AdditionalSourcesToCopyMapping)"
+      Timeout="$(RemoteExecuteTimeout)">
+    </Execute>
+  </Target>
+
+  <Target Name="RemotePostBuildEvent" AfterTargets="Build;Rebuild" Condition="'$(RemotePostBuildEventUseInBuild)' != 'false'" DependsOnTargets="_ResolveRemoteTarget">
+    <Message Text="Description: %(RemotePostBuildEvent.Message)" Condition="'%(RemotePostBuildEvent.Message)' != '' and '%(RemotePostBuildEvent.Command)' != ''"/>
+    <Execute Condition="'%(RemotePostBuildEvent.Command)' != '' or '%(RemotePostBuildEvent.AdditionalSourcesToCopyMapping)' != ''"
+      Command="%(RemotePostBuildEvent.Command)"
+      RemoteTarget="$(ResolvedRemoteTarget)"
+      ProjectDir="$(ProjectDir)"
+      RemoteProjectDir="$(_ResolvedRemoteProjectDir)"
+      IntermediateDir="$(IntDir)"
+      RemoteFilesToCopyLocallyMapping="%(RemotePostBuildEvent.AdditionalSourcesToCopyMapping)"
+      Timeout="$(RemoteExecuteTimeout)">
+    </Execute>
+  </Target>
+
+  <!-- *******************************************************************************************
+        Property pages Linux makefile project
+       ******************************************************************************************* -->
+  <ItemGroup>
+    <PropertyPageSchema Include="$(VCTargetsPath)$(LangID)\ProjectItemsSchema.xml" />
+    <PropertyPageSchema Include="$(LinuxCommonTargetsPath)$(LangID)\general_linux_makefile.xml">
+      <Context>Project</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(VCTargetsPath)$(LangID)\folder.xml">
+      <Context>File;BrowseObject</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(VCTargetsPath)$(LangID)\debugger_general.xml" />
+    <PropertyPageSchema Include="$(LinuxCommonTargetsPath)$(LangID)\remote_debugger_linux.xml" />
+    <PropertyPageSchema Include="$(LinuxCommonTargetsPath)$(LangID)\remote_copy_sources_file.xml">
+      <Context>File</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(LinuxCommonTargetsPath)$(LangID)\remote_copy_sources.xml"/>
+    <PropertyPageSchema Include="$(VCTargetsPath)$(LangID)\general_file.xml">
+      <Context>File</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(LinuxCommonTargetsPath)$(LangID)\isense_linux_makefile_file.xml">
+      <Context>File</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(LinuxCommonTargetsPath)$(LangID)\isense_linux_makefile.xml">
+      <Context>Project</Context>
+    </PropertyPageSchema>
+    <PropertyPageSchema Include="$(LinuxCommonTargetsPath)$(LangID)\remote_linux_build_makefile.xml" />
+    <PropertyPageSchema Include="$(LinuxCommonTargetsPath)$(LangID)\linux_build_makefile.xml" />
+    <PropertyPageSchema Include="$(LinuxCommonTargetsPath)$(LangID)\remote_build_events_makefile.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PreBuildEvent Include="$(ProjectName)" />
+    <PostBuildEvent Include="$(ProjectName)" />
+    <RemotePreBuildEvent Include="$(ProjectName)" />
+    <RemotePostBuildEvent Include="$(ProjectName)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectCapability Include="LinuxNative"/>
+    <ProjectCapability Include="LinuxRemoteNative"/>
+  </ItemGroup>
+  
+  <Import Project="$(MSBuildThisFileDirectory)\Linux.Common.targets" />
+</Project>
